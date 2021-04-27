@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+   PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="admin">
+    <select id="selectDetpCode" parameterType="string" resultType="string">
+        select dept_code from tb_department where dept_name = #{deptName}
+	</select>
+    <insert id="insertUser" parameterType="userdto">
+        insert into tb_user
+        ( id, password, name, rank, dept_code )
+        values
+        ( #{id}, #{password}, #{name}, #{rank}, #{deptCode} )
+    </insert>
+
+    <update id="modifyUser" parameterType="userdto">
+        update tb_user
+        set name=#{name}, rank=#{rank}, dept_code=#{deptCode}
+        where id=#{id}
+    </update>
+
+    <delete id="deleteUser" parameterType="string">
+        delete from tb_user
+        where id=#{userId}
+    </delete>
+</mapper>

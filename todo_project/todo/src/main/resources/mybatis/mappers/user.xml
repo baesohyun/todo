@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+   PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="user">
+   <!-- <select id="selectUserIdPwd" parameterType="uservo" resultType="uservo"> -->
+   <select id="selectUserIdPwd" parameterType="uservo" resultType="tokendto">
+   <![CDATA[
+      select id, user_type
+      from tb_user
+      where id=#{id} and password=#{password}
+   ]]>
+   </select>
+   
+   <select id="selectLoginUser" resultType="userdto">
+   <![CDATA[
+      select tu.*, td.dept_name
+      from tb_user tu, tb_department td 
+      where id=#{id} and password=#{password}
+      and td.dept_code = tu.dept_code
+   ]]>
+   </select>
+
+   <select id="selectLoginAdmin" resultType="userdto">
+   <![CDATA[
+      select *
+      from tb_user
+      where id=#{id} and password=#{password}
+   ]]>
+   </select>
+   
+   <select id="selectById" parameterType="String" resultType="userdto">
+   <![CDATA[
+      select tu.*, td.dept_name
+      from tb_user tu, tb_department td 
+      where id=#{id}
+      and td.dept_code = tu.dept_code
+   ]]>
+   </select>
+   
+   <select id="selectId" parameterType="string" resultType="string">
+   <![CDATA[
+      select password
+      from tb_user
+      where id=#{id}
+   ]]>
+   </select>   
+
+   <select id="selectDeptList" resultType="deptdto">
+   <![CDATA[
+      select row_number () over (order by dept_code) as id, * 
+      from tb_department order by dept_code;
+   ]]>
+   </select>
+
+   <select id="selectUserList" resultType="userdto">
+   <![CDATA[
+      select tu.id, tu.name, tu.phone, tu.email, tu.rank, tu.img_code, td.dept_name
+      from tb_user tu, tb_department td 
+      where td.dept_code = tu.dept_code
+   ]]>
+      <choose>
+         <when test="deptList.length != 0">
+            and tu.dept_code in
+            <foreach collection="deptList" item="item" index="index" separator="," open="(" close=")">
+               #{item}
+            </foreach>
+         </when>
+         <otherwise>
+            and tu.user_type = 's'
+         </otherwise>
+      </choose>        
+   </select>
+
+   <update id="updateUserData" parameterType="userdto">
+      update tb_user 
+         set img_code = #{imgCode},
+             name = #{name},
+             birth = #{birth},
+             gender = #{gender},
+             phone = #{phone},
+             email = #{email},
+             rank = #{rank}
+             <choose>
+               <when test="password != null">
+                  , password = #{password}
+               </when>
+             </choose>
+         where id = #{id}
+   </update>
+
+   
+</mapper>

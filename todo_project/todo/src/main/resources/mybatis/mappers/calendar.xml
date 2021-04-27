@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="calendar">
+    <select id="getCalendarInfo" parameterType="String" resultType="scheduledto">
+        <![CDATA[
+        select 
+            tp.id prjId,
+            tp.title prjTitle, 
+            tts.task_id id, 
+            tts.title title, 
+            tts.start_date startDate, 
+            tts.end_date endDate, 
+            tts.reg_date regDate, 
+            tts.state state, 
+            tts.use_public usePublic
+        from tb_project tp, tb_member tm, tb_task_super tts
+        where (tts.task_id in (select task_id from tb_task_super where project_id in (select project_id from tb_member where user_id = #{userId})))
+        and (tp.manager = tm.member_no and tts.project_id = tp.id) 
+        and (
+        (tp.use_public = true and tts.use_public =true)
+        or (tp.use_public = true and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tts.use_public = true)
+        or (tp.use_public = false and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+    ]]>
+    </select>
+    <select id="getCalendarFilterInfo" parameterType="map" resultType="scheduledto">
+        select 
+                tp.id prjId,
+                tp.title prjTitle, 
+                tts.task_id id, 
+                tts.title title, 
+                tts.start_date startDate, 
+                tts.end_date endDate, 
+                tts.reg_date regDate, 
+                tts.state state, 
+                tts.use_public usePublic
+            from tb_project tp, tb_member tm, tb_task_super tts
+            where (tts.task_id in (select task_id from tb_task_super where project_id in (select project_id from tb_member where user_id = #{userId})))
+            and (tp.manager = tm.member_no and tts.project_id = tp.id) 
+            and (
+            (tp.use_public = true and tts.use_public =true)
+            or (tp.use_public = true and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+            or (tp.use_public = false and tts.use_public = true)
+            or (tp.use_public = false and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+            )
+        <if test="prjItem">
+        and (
+            <foreach open="(" close=")" collection="prjItem" item="pitem" index="index" separator="or">
+        tts.project_id =#{pitem} 
+            </foreach>
+        )
+        </if>
+        <if test="memItem">
+       and (
+            <foreach open="(" close=")" collection="memItem" item="mitem" index="index" separator="or">
+        tts.task_id in (select task_id from tb_task_manager where member_no in (select member_no from tb_member where user_id=#{mitem}))
+            </foreach>
+       )
+        </if>
+        <if test='uItem == "true"'>
+        and 
+        tts.use_public = true
+        </if>
+        <if test='uItem =="false"'>
+        and (
+        tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        </if>
+    </select>
+    <select id="getProjects" parameterType="String" resultType="map">
+        <![CDATA[
+        select tp.id prjId, tp.title prjTitle
+        from tb_project tp 
+        where tp.id in (select project_id from tb_member  where user_id=#{userId});
+    ]]>
+    </select>
+    <select id="getSuperTasks" parameterType="chkprjdto" resultType="chkstdto">
+        <![CDATA[
+        select task_id pId, title pTitle
+        from tb_task_super tts
+        where project_id = (select project_id from tb_member  where user_id=#{id} and project_id=#{chkProject});
+    ]]>
+    </select>
+    <select id="getChkProjectInfo" parameterType="chkprjdto" resultType="map">
+        <![CDATA[
+    select member_no, project_id 
+    from tb_member tm 
+    where user_id = #{id} and tm.project_id = #{chkProject};
+    ]]>
+    </select>
+    <select id="getLastSortNo" parameterType="String" resultType="String">
+        <![CDATA[
+    select max(sort_no) from tb_task_sub tts where task_super_id = #{chkProject};
+    ]]>
+    </select>
+    <select id="getLabelList" resultType="labelvo">
+        <![CDATA[
+		select *
+		from tb_label tl
+		where tl.project_id = #{pid}
+	]]>
+    </select>
+    <select id="getClickDateList" parameterType="cddto" resultType="cddetialdto">
+        <![CDATA[
+       select 
+           tts.project_id prjId, 
+            tp.title prjTitle,
+            tts.task_id pId, 
+            tts.title pTitle, 
+            tts.start_date startDate, 
+            tts.end_date endDate, 
+            tts.reg_date regDate, 
+            tts.state pState, 
+            tts.use_public pUsePublic
+        from tb_project tp, tb_member tm, tb_task_super tts
+        where (tts.task_id in (select task_id from tb_task_super where project_id in (select project_id from tb_member where user_id = #{id})))
+        and (tp.manager = tm.member_no and tts.project_id = tp.id) 
+        and (
+        (tp.use_public = true and tts.use_public =true)
+        or (tp.use_public = true and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{id}))
+        or (tp.use_public = false and tts.use_public = true)
+        or (tp.use_public = false and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{id}))
+        )
+        and (
+        case when (tts.start_date='' or tts.end_date='') then (to_char(tts.reg_date, 'YYYY-MM-DD') = #{clickDate})
+        when (tts.start_date !='' or tts.end_date !='') then (#{clickDate} between tts.start_date and tts.end_date)
+        end
+        )
+    ]]>
+    </select>
+    <select id="getClickDateFilterList" parameterType="map" resultType="cddetialdto">
+        select 
+           tts.project_id prjId, 
+            tp.title prjTitle,
+            tts.task_id pId, 
+            tts.title pTitle, 
+            tts.start_date startDate, 
+            tts.end_date endDate, 
+            tts.reg_date regDate, 
+            tts.state pState, 
+            tts.use_public pUsePublic
+        from tb_project tp, tb_member tm, tb_task_super tts
+        where (tts.task_id in (select task_id from tb_task_super where project_id in (select project_id from tb_member where user_id = #{userId})))
+        and (tp.manager = tm.member_no and tts.project_id = tp.id) 
+        and (
+        (tp.use_public = true and tts.use_public =true)
+        or (tp.use_public = true and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tts.use_public = true)
+        or (tp.use_public = false and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        and (
+        case when (tts.start_date='' or tts.end_date='') then (to_char(tts.reg_date, 'YYYY-MM-DD') = #{clickDate})
+        when (tts.start_date !='' or tts.end_date !='') then (#{clickDate} between tts.start_date and tts.end_date)
+        end
+        )
+        <if test="prjItem">
+        and (
+            <foreach open="(" close=")" collection="prjItem" item="pitem" index="index" separator="or">
+        tts.project_id =#{pitem} 
+            </foreach>
+        )
+        </if>
+        <if test="memItem">
+       and (
+            <foreach open="(" close=")" collection="memItem" item="mitem" index="index" separator="or">
+        tts.task_id in (select task_id from tb_task_manager where member_no in (select member_no from tb_member where user_id=#{mitem}))
+            </foreach>
+       )
+        </if>
+        <if test='uItem == "true"'>
+        and 
+        tts.use_public = true
+        </if>
+        <if test='uItem =="false"'>
+        and (
+        tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        </if>
+    </select>
+    <select id="getSubList" parameterType="map" resultType="cddetialdto">
+        <![CDATA[
+        SELECT 
+           c.prjId, c.prjTitle, c.pId, c.pTitle, c.pStartDate, c.pEndDate, c.pState, c.pUsePublic, c.cId, c.cTitle, c.cStartDate, c.cEndDate, c.reg_date, c.cUsePublic, d.manager_name, d.img_code
+        FROM 
+        (
+	        select a.prjId, a.prjTitle, a.pId, a.pTitle, a.pStartDate, a.pEndDate, a.pState, a.pUsePublic, b.cId, b.cTitle, b.cStartDate, b.cEndDate, b.reg_date, b.cUsePublic
+			from 
+			(
+			select tp.id prjId, tp.title prjTitle, ttsp.task_id pId, ttsp.title pTitle, ttsp.start_date pStartDate, ttsp.end_date pEndDate, ttsp.state pState, ttsp.use_public pUsePublic
+			from tb_task_super ttsp , tb_project tp
+			where (ttsp.project_id = tp.id)  and ttsp.task_id = #{superId}
+			)
+			as a left outer join
+			(
+			select ttsp.task_id pId, tts.task_id cId, tts.title cTitle, tts.start_date cStartDate, tts.end_date cEndDate, tts.reg_date,tts.use_public cUsePublic
+			from tb_task_sub tts, tb_task_super ttsp
+			where (tts.task_super_id = ttsp.task_id)
+			and ttsp.task_id = #{superId}
+            and ((tts.use_public = true) or (tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+			)
+			AS b
+			ON a.pId = b.pId
+        )
+        AS c left outer join
+        (
+	        select ttm.task_id cId , json_agg(tu."name") as manager_name, json_agg(tu.img_code) as img_code
+	        from tb_task_manager ttm, tb_member tm,tb_user tu, tb_task_sub tts2 
+	        where  (ttm.task_id = tts2.task_id) 
+	        and (ttm.member_no = tm.member_no)
+	        and (tm.user_id = tu.id)
+	        group by ttm.task_id
+        )
+        AS d
+        ON c.cId = d.cId
+        order by c.reg_date desc
+     ]]>
+    </select>
+    <select id="getFilter" parameterType="String" resultType="filterdto">
+        <![CDATA[
+        select tp.id prjId, tp.title prjTitle, tu.id userId, tu.name userName 
+        from tb_member tm, tb_user tu, tb_project tp 
+        where (tp.id = tm.project_id ) and (tm.user_id = tu.id) 
+        and tm.project_id in (select project_id from tb_member  where user_id=#{userId});
+    ]]>
+    </select>
+
+    <insert id="insertFilterItem" parameterType="map">
+        <![CDATA[
+    insert into tb_filter(filter_no, calendar_setting , user_id ) 
+    values(nextval('seq_filter'), #{calItem}, #{userId});
+   ]]>
+    </insert>
+
+    <update id="updateFilterItem" parameterType="map">
+        <![CDATA[
+        update tb_filter 
+        set calendar_setting = #{calItem} 
+        where user_id = #{userId}
+   ]]>
+    </update>
+
+    <select id="selectFilterItem" parameterType="String" resultType="String">
+        <![CDATA[
+        select calendar_setting 
+        from tb_filter
+        where user_id = #{userId}
+   ]]>
+    </select>
+
+    <select id="selectExistUser" parameterType="String" resultType="String">
+        <![CDATA[
+        select user_id from tb_filter
+        where user_id = #{userId}
+   ]]>
+    </select>
+    <update id="deleteCalSetting" parameterType="String">
+        <![CDATA[
+       update tb_filter 
+       set calendar_setting = ''
+       where user_id=#{userId};
+    ]]>
+    </update>
+</mapper>

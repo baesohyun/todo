@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dashboard">
+    <select id="getTodaySuperList" parameterType="String" resultType="dashsuperdto">
+        <![CDATA[
+        select distinct tp.id prjId, ttsp.task_id pId, tp.title prjTitle, ttsp.title pTitle, ttsp.start_date, ttsp.end_date, ttsp.reg_date, ttsp.state, ttsp.use_public, ttsp.progress_rate
+        from  tb_task_super ttsp
+        inner join tb_project tp
+        on ttsp.project_id = tp.id
+        inner join tb_member tm
+        on tm.project_id = tp.id
+        left outer join tb_task_sub tts
+        on ttsp.task_id = tts.task_super_id
+        where ((current_date::varchar between ttsp.start_date and ttsp.end_date) or (current_date::varchar between tts.start_date and tts.end_date))
+        and (ttsp.task_id in (
+                    select tts.task_id from tb_task_super tts where tts.project_id in ( 
+                    select tp.id from tb_project tp where tp.id in (select project_id from tb_member  where user_id=#{userId}))))
+        and (
+        (tp.use_public = true and ttsp.use_public =true) 
+        or (tp.use_public = true and ttsp.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tm.user_id =#{userId} and ttsp.use_public = true)
+        or (tp.use_public = false and tm.user_id = #{userId} and ttsp.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        order by ttsp.reg_date desc
+    ]]>
+    </select>
+    <select id="getTodaySubList" parameterType="map" resultType="dashsubdto">
+        <![CDATA[
+        select tts.task_id cId, tts.title cTitle, tts.start_date, tts.end_date, tts.state, tts.use_public
+        from tb_task_sub tts
+        where (current_date::varchar between tts.start_date and tts.end_date)
+        and tts.task_super_id=#{todaySub}
+        and (tts.task_id in (
+            select tts.task_id from tb_task_sub tts 
+            where tts.task_super_id in (
+                    select tts.task_id from tb_task_super tts where tts.project_id in (
+                    select tp.id from tb_project tp where tp.id in (select project_id from tb_member  where user_id=#{userId})))))
+        and (
+        (tts.use_public = true) or (tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        order by tts.reg_date desc
+    ]]>
+    </select>
+    <select id="getWeekSuperList" parameterType="String" resultType="dashsuperdto">
+        <![CDATA[
+        select distinct tp.id prjId, ttsp.task_id pId, tp.title prjTitle, ttsp.title pTitle, ttsp.start_date, ttsp.end_date, ttsp.reg_date, ttsp.state, ttsp.use_public, ttsp.progress_rate
+        from  tb_task_super ttsp
+        inner join tb_project tp
+        on ttsp.project_id = tp.id
+        inner join tb_member tm
+        on tm.project_id = tp.id
+        left outer join tb_task_sub tts
+        on ttsp.task_id = tts.task_super_id
+        where (
+        (((date_trunc('week',current_date)::date)::varchar between ttsp.start_date and ttsp.end_date) or ((date_trunc('week',current_date)::date+6)::varchar between ttsp.start_date and ttsp.end_date))
+        or 
+        (((date_trunc('week',current_date)::date)::varchar between tts.start_date and tts.end_date) or ((date_trunc('week',current_date)::date+6)::varchar between tts.start_date and tts.end_date))
+        )
+        and (ttsp.task_id in (
+                    select tts.task_id from tb_task_super tts where tts.project_id in ( 
+                    select tp.id from tb_project tp where tp.id in (select project_id from tb_member  where user_id=#{userId}))))
+        and (
+        (tp.use_public = true and ttsp.use_public =true) 
+        or (tp.use_public = true and ttsp.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tm.user_id =#{userId} and ttsp.use_public = true)
+        or (tp.use_public = false and tm.user_id = #{userId} and ttsp.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        order by ttsp.reg_date desc
+    ]]>
+    </select>
+    <select id="getWeekSubList" parameterType="map" resultType="dashsubdto">
+        <![CDATA[
+        select tts.task_id cId, tts.title cTitle, tts.start_date, tts.end_date, tts.state, tts.use_public
+        from tb_task_sub tts
+        where (((date_trunc('week',current_date)::date)::varchar between tts.start_date and tts.end_date) or ((date_trunc('week',current_date)::date+6)::varchar between tts.start_date and tts.end_date))
+        and tts.task_super_id=#{weekSub}
+        and (tts.task_id in (
+            select tts.task_id from tb_task_sub tts 
+            where tts.task_super_id in (
+                    select tts.task_id from tb_task_super tts where tts.project_id in (
+                    select tp.id from tb_project tp where tp.id in (select project_id from tb_member  where user_id=#{userId})))))
+        and (
+        (tts.use_public = true) or (tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        order by tts.reg_date desc
+    ]]>
+    </select>
+    <select id="getStarredList" parameterType="String" resultType="dashsuperdto">
+        <![CDATA[
+        select tst.star_id starId, tp.id prjId, tp.title prjTitle, ttsp.task_id pId, ttsp.title pTitle, ttsp.start_date, ttsp.end_date, ttsp.reg_date, ttsp.state, ttsp.use_public
+        from tb_starred_task tst, tb_task_super ttsp , tb_project tp, tb_member tm
+        where  (ttsp.project_id = tp.id ) and (tst.task_id = ttsp.task_id ) and (tm.project_id = tp.id)
+        and tst.task_id in (
+                select task_id from tb_task_super where project_id in (
+                select id from tb_project where id in (select project_id from tb_member  where user_id=#{userId})))
+        and (
+        (tp.use_public = true and ttsp.use_public =true) 
+        or (tp.use_public = true and ttsp.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tm.user_id =#{userId} and ttsp.use_public = true)
+        or (tp.use_public = false and tm.user_id = #{userId} and ttsp.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        union
+        select tst.star_id starId, tp.id prjId, tp.title prjTitle, tts.task_id pId, tts.title pTitle, tts.start_date, tts.end_date, tts.reg_date, tts.state, tts.use_public
+        from tb_starred_task tst, tb_task_sub tts, tb_task_super ttsp , tb_project tp, tb_member tm
+        where  (ttsp.project_id = tp.id ) and (tst.task_id = tts.task_id ) and (ttsp.task_id = tts.task_super_id ) and (tm.project_id = tp.id)
+        and tst.task_id in (
+                select task_id from tb_task_sub
+                where task_super_id in (
+                select task_id from tb_task_super where project_id in (
+                select id from tb_project where id in (select project_id from tb_member  where user_id=#{userId}))))
+        and (
+        (tp.use_public = true and ttsp.use_public = true and tts.use_public = true)
+        or (tp.use_public = true and ttsp.use_public = true and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = true and ttsp.use_public = false and tts.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}) and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tm.user_id = #{userId} and ttsp.use_public = true and tts.use_public = true)
+        or (tp.use_public = false and tm.user_id = #{userId} and ttsp.use_public = true and tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        or (tp.use_public = false and tm.user_id = #{userId} and ttsp.use_public = false and tts.use_public = false and ttsp.member_no in (select member_no from tb_member where user_id=#{userId}) and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+    ]]>
+    </select>
+    <delete id="deleteStarred" parameterType="int">
+        <![CDATA[
+        delete from tb_starred_task where star_id = #{starId}
+    ]]>
+    </delete>
+</mapper>

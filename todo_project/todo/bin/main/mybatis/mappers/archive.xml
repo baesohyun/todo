@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="archive">
+    <select id="getArchiveSupers" parameterType="String" resultType="arcsuperdto">
+        <![CDATA[
+        select tas.task_id taskId, tas.title, tas.use_public, tp.title projectTitle 
+        from tb_archive_super tas , tb_project tp 
+        where tas.project_id = tp.id
+        union
+        select tas.task_id taskId, tas.title, tas.use_public, tp.title projectTitle 
+        from tb_archive_super tas , tb_project tp, tb_member tm 
+        where tas.member_no in (select member_no from tb_member where user_id =#{userId}) and tas.use_public = false
+        and (tas.project_id = tp.id) and (tm.project_id = tp.id)
+    ]]>
+    </select>
+    <select id="getArchiveSubs" parameterType="String" resultType="arcsubdto">
+        <![CDATA[
+        select tas.task_id taskId, tas.title, tas.use_public, tts.task_id superTaskId, tts.title superTitle, tp.title projectTitle 
+        from tb_archive_sub tas, tb_task_super tts , tb_project tp
+        where (tas.task_super_id = tts.task_id) and (tts.project_id = tp.id) and tas.use_public = true
+        union
+        select tas.task_id taskId, tas.title, tas.use_public, tas2.task_id superTaskId, tas2.title superTitle, tp.title projectTitle 
+        from tb_archive_sub tas, tb_archive_super tas2 , tb_project tp
+        where (tas.task_super_id = tas2.task_id) and (tas2.project_id = tp.id) and tas.use_public = true
+        union
+        select tas.task_id taskId, tas.title, tas.use_public, tts.task_id superTaskId, tts.title superTitle, tp.title projectTitle
+        from tb_archive_sub tas, tb_task_super tts , tb_project tp, tb_member tm 
+        where tas.member_no in (select member_no from tb_member where user_id =#{userId}) and tas.use_public = false
+    and (tas.task_super_id = tts.task_id) and (tts.project_id = tp.id) and (tm.project_id = tp.id)
+    ]]>
+    </select>
+    <delete id="delSub" parameterType="String">
+        <![CDATA[
+        delete from tb_archive_sub where task_id = #{subId};
+        ]]>
+    </delete>
+    <delete id="delSuper" parameterType="String">
+        <![CDATA[
+        delete from tb_archive_super where task_id = #{superId};
+        ]]>
+    </delete>
+    <delete id="delFile" parameterType="String">
+    delete from tb_file where task_id = #{id};
+    </delete>
+    <delete id="delChkList" parameterType="String">
+    delete from tb_check_list_item where list_no in (select list_no from tb_check_list where task_id =#{id});
+    </delete>
+    <delete id="delChkListItem" parameterType="String">
+    delete from tb_check_list where task_id = #{id};
+    </delete>
+    <delete id="delComment" parameterType="String">
+    delete from tb_comment where task_id = #{id};
+    </delete>
+    <delete id="delManager" parameterType="String">
+    delete from tb_task_manager where task_id = #{id};
+    </delete>
+    <!-- superid 존재 유무 -->
+    <select id="existArchiveSuperId" parameterType="String" resultType="String">
+        <![CDATA[
+        select task_id from tb_archive_sub where task_super_id=#{superId};
+        ]]>
+    </select>
+    <select id="existTaskSuperId" parameterType="String" resultType="String">
+        <![CDATA[
+        select task_id from tb_task_sub where task_super_id=#{superId};
+        ]]>
+    </select>
+    <delete id="delArchiveSub" parameterType="String">
+        <![CDATA[
+    delete from tb_archive_sub where task_super_id = #{superId};
+        ]]>
+    </delete>
+    <delete id="delTaskSub" parameterType="String">
+        <![CDATA[
+    delete from tb_task_sub where task_id = #{taskSubId};
+        ]]>
+    </delete>
+    <select id="getsubId" parameterType="String">
+        <![CDATA[
+    select task_id from tb_task_sub where task_super_id = #{superId};
+    ]]>
+    </select>
+    <!-- Restore........... -->
+    <select id="getRestoreSubId" parameterType="String" resultType="restoresubvo">
+        <![CDATA[
+        select * from tb_archive_sub where task_id = #{subId}
+        ]]>
+    </select>
+    <insert id="restoreSub" parameterType="restoresubvo">
+        <![CDATA[
+        insert into tb_task_sub
+        ( task_id, title, description, use_public, start_date, end_date, sort_no, member_no, labels, task_super_id, state )
+        values
+        ( #{taskId}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{sortNo}, #{memberNo}, #{labels}, #{taskSuperId}, #{state})
+    ]]>
+    </insert>
+    <select id="getRestoreSuperId" parameterType="String" resultType="restoresupervo">
+        <![CDATA[
+        select * from tb_archive_super where task_id = #{superId}
+        ]]>
+    </select>
+    <insert id="restoreSuper" parameterType="restoresupervo">
+        <![CDATA[
+        insert into tb_task_super
+        ( task_id, title, description, use_public, start_date, end_date, sort_no, progress_rate, member_no, labels, project_id, state )
+        values
+        ( #{taskId}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{sortNo}, #{progressRate}, #{memberNo}, #{labels}, #{projectId}, #{state})
+    ]]>
+    </insert>
+    <select id="getTaskSubId" resultType="restoresubvo">
+        <![CDATA[
+        select * from tb_task_sub where task_id = #{taskId}
+        ]]>
+    </select>
+    <insert id="insertTaskSub" parameterType="restoresubvo">
+        <![CDATA[
+         insert into tb_archive_sub
+        ( task_id, title, description, use_public, start_date, end_date, sort_no, member_no, labels, task_super_id, state )
+        values
+        ( #{taskId}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{sortNo}, #{memberNo}, #{labels}, #{taskSuperId}, #{state})    ]]>
+    </insert>
+    <delete id="delSubFromTask" parameterType="String">
+        <![CDATA[
+          delete from tb_task_sub where task_id = #{subId}
+        ]]>
+    </delete>
+    <select id="getTaskSuperId" resultType="restoresupervo">
+        <![CDATA[
+          select * from tb_task_super where task_id = #{taskId}
+        ]]>
+    </select>
+    <insert id="insertTaskSuper" parameterType="restoresupervo">
+        <![CDATA[
+            insert into tb_archive_super
+            ( task_id, title, description, use_public, start_date, end_date, sort_no, progress_rate, member_no, labels, project_id, state )
+            values
+            ( #{taskId}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{sortNo}, #{progressRate}, #{memberNo}, #{labels}, #{projectId}, #{state})
+        ]]>
+    </insert>
+    <delete id="delSuperFromTask" parameterType="String">
+        <![CDATA[
+          delete from tb_task_super where task_id = #{subId}
+        ]]>
+    </delete>
+    <!-- <insert id="addSuper" parameterType="supertaskvo" resultType="int">
+    <![CDATA[
+    ]]>
+</insert>
+<insert id="addSub" parameterType="" resultType="int">
+<![CDATA[
+    ]]>
+</insert> -->
+</mapper>

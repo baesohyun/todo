@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="file">
+   <select id="selectImg" resultType="String">
+   <![CDATA[
+      select save_name from tb_image where img_no = 1;
+   ]]>
+   </select>
+	<insert id="insertImg" parameterType="imagevo">
+		<![CDATA[
+			insert into tb_image
+			( save_name )
+			values
+			( #{saveName} )
+		]]>
+		<selectKey keyProperty="imgNo" resultType="int" order="AFTER">
+            SELECT currval('seq_img')
+        </selectKey>
+	</insert>
+	<insert id="insertFile" parameterType="filevo">
+		<![CDATA[
+			insert into tb_file
+			( save_name, org_name, ext, size, task_id )
+			values
+			( #{saveName}, #{orgName}, #{ext}, #{size}, #{taskId} )
+		]]>
+	</insert>
+	<delete id="deleteFile">
+		<![CDATA[
+			delete from tb_file
+			where file_no =#{fileNo};
+		]]>
+	</delete>
+</mapper>

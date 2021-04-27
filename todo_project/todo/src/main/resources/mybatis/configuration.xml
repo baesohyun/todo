@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- mybatis 설정파일 -->
+<!DOCTYPE configuration
+ PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<!-- 매핑시킬 매퍼를 type alias 등록하고 , 매퍼등록! -->
+<configuration>
+	<settings>
+		<setting name="mapUnderscoreToCamelCase" value="true"/>
+	</settings>
+	<typeAliases>
+		<typeAlias alias="uservo" type="com.inzent.todo.vo.UserVo"/>
+		<typeAlias alias="imagevo" type="com.inzent.todo.vo.ImageVo"/>
+		<typeAlias alias="membervo" type="com.inzent.todo.vo.MemberVo"/>
+		<typeAlias alias="projectvo" type="com.inzent.todo.vo.ProjectVo"/>
+		<typeAlias alias="filevo" type="com.inzent.todo.vo.FileVo"/>
+		<typeAlias alias="labelvo" type="com.inzent.todo.vo.LabelVo"/>
+		<typeAlias alias="supertaskvo" type="com.inzent.todo.vo.SuperTaskVo"/>
+		<typeAlias alias="commentvo" type="com.inzent.todo.vo.CommentVo"/>
+		<typeAlias alias="starredtaskvo" type="com.inzent.todo.vo.StarredTaskVo"/>
+		<typeAlias alias="checklistvo" type="com.inzent.todo.vo.CheckListVo"/>
+		<typeAlias alias="checklistitemvo" type="com.inzent.todo.vo.CheckListItemVo"/>
+
+		<typeAlias alias="restoresubvo" type="com.inzent.todo.vo.RestoreSubVo"/>
+		<typeAlias alias="restoresupervo" type="com.inzent.todo.vo.RestoreSuperVo"/>
+
+		<typeAlias alias="projectcarddto" type="com.inzent.todo.dto.ProjectCardDto"/>
+		<typeAlias alias="taskdto" type="com.inzent.todo.dto.TaskDto"/>
+		<typeAlias alias="taskupdatedto" type="com.inzent.todo.dto.TaskUpdateDto"/>
+		<typeAlias alias="memberdto" type="com.inzent.todo.dto.MemberDto"/>
+		<typeAlias alias="deptdto" type="com.inzent.todo.dto.DeptDto"/>
+		<typeAlias alias="tokendto" type="com.inzent.todo.dto.TokenDto"/>
+		<typeAlias alias="userdto" type="com.inzent.todo.dto.UserDto"/>
+		<typeAlias alias="dashsuperdto" type="com.inzent.todo.dto.DashBoardSuperDto"/>
+		<typeAlias alias="dashsubdto" type="com.inzent.todo.dto.DashBoardSubDto"/>
+		<typeAlias alias="scheduledto" type="com.inzent.todo.dto.ScheduleDto"/>
+		<typeAlias alias="cddetialdto" type="com.inzent.todo.dto.CalDateDetailDto"/>
+		<typeAlias alias="chkprjdto" type="com.inzent.todo.dto.ChkProjectDto"/>
+		<typeAlias alias="chkstdto" type="com.inzent.todo.dto.ChkSuperTasksDto"/>
+		<typeAlias alias="cddto" type="com.inzent.todo.dto.ClickDateDto"/>
+		<typeAlias alias="filterdto" type="com.inzent.todo.dto.FilterDto"/>
+		<typeAlias alias="gcinfodto" type="com.inzent.todo.dto.GanttChartInfoDto"/>
+		<typeAlias alias="arcsubdto" type="com.inzent.todo.dto.ArchiveSubDto"/>
+		<typeAlias alias="arcsuperdto" type="com.inzent.todo.dto.ArchiveSuperDto"/>
+		<typeAlias alias="checklistdto" type="com.inzent.todo.dto.CheckListDto"/>
+		<typeAlias alias="reportdto" type="com.inzent.todo.dto.ReportDto"/>
+
+
+	</typeAliases>
+	<mappers>
+		<mapper resource="mybatis/mappers/user.xml"/>
+		<!-- 현재경로 기준! -->
+		<mapper resource="mybatis/mappers/file.xml"/>
+		<!-- 현재경로 기준! -->
+		<mapper resource="mybatis/mappers/member.xml"/>
+		<!-- 현재경로 기준! -->
+		<mapper resource="mybatis/mappers/project.xml"/>
+		<!-- 현재경로 기준! -->
+		<mapper resource="mybatis/mappers/dashboard.xml"/>
+		<!-- 현재경로 기준! -->
+		<mapper resource="mybatis/mappers/calendar.xml"/>
+		<!-- 현재경로 기준! -->
+		<mapper resource="mybatis/mappers/comment.xml"/>
+		<mapper resource="mybatis/mappers/archive.xml"/>
+		<mapper resource="mybatis/mappers/ganttchart.xml"/>
+		<mapper resource="mybatis/mappers/search.xml"/>
+		<mapper resource="mybatis/mappers/admin.xml"/>
+	</mappers>
+</configuration>

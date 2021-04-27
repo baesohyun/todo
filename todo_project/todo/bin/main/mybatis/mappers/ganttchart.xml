@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="ganttchart">
+    <select id="getGanttSuperTasksInfo" parameterType="String" resultType="gcinfodto">
+        <![CDATA[
+        SELECT a.row_number, a.id, a.title, a.start, a.end, a.state, a.reg_date, a.project_id, b.manager_name, b.manager_count
+        FROM
+        (    
+            select row_number () over (order by task_id ), task_id id, title, start_date as start, end_date as end, progress_rate, reg_date, state, project_id
+            from tb_task_super
+            where project_id in
+                (select id from tb_project 
+                where (id in (select project_id from tb_member where user_id=#{userId}))
+                )
+            and ((use_public=true) or (use_public=false and member_no in (select member_no from tb_member where user_id=#{userId})))
+        )
+        AS a left outer join
+        (
+            select ttm.task_id id, json_agg(tu."name") as manager_name, count(tu.id) manager_count
+            from tb_task_manager ttm, tb_member tm,tb_user tu, tb_task_super tts2 
+            where  (ttm.task_id = tts2.task_id) 
+            and (ttm.member_no = tm.member_no)
+            and (tm.user_id = tu.id)
+            group by ttm.task_id
+        )
+        AS b
+        ON a.id = b.id 
+    ]]>
+    </select>
+    <select id="getGanttSubTasksInfo" parameterType="String" resultType="gcinfodto">
+        <![CDATA[
+        SELECT a.id, a.title, a.start, a.end, a.parent_id, a.state, a.reg_date, a.project_id, b.manager_name, b.manager_count
+        FROM
+        (    
+            select tts.task_id id, tts.title, tts.start_date as start, tts.end_date as end, tts.task_super_id parent_id, tts.reg_date, tts.state, tp.id as project_id
+            from tb_task_sub tts, tb_task_super ttsp, tb_project tp 
+            where (tts.task_super_id = ttsp.task_id) and (ttsp.project_id = tp.id )
+            and (tts.task_super_id in 
+	            (select task_id 
+	            from tb_task_super 
+	            where project_id in 
+	            (
+		            select id from tb_project 
+                    where (id in (select project_id from tb_member where user_id=#{userId}))
+	            ) 
+	            and ((use_public=true) or (use_public=false and member_no in (select member_no from tb_member where user_id=#{userId})))
+	            ))
+	        and ((tts.use_public = true) or tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+	            
+        )
+        AS a left outer join
+        (
+            select ttm.task_id id, json_agg(tu."name") as manager_name, count(tu.id) manager_count
+            from tb_task_manager ttm, tb_member tm,tb_user tu, tb_task_sub tts2 
+            where  (ttm.task_id = tts2.task_id) 
+            and (ttm.member_no = tm.member_no)
+            and (tm.user_id = tu.id)
+            group by ttm.task_id
+        )
+        AS b
+        ON a.id = b.id
+    ]]>
+    </select>
+    <select id="getGanttFilterSuperInfo" parameterType="map" resultType="gcinfodto">
+    SELECT a.row_number, a.id, a.title, a.start, a.end, a.state, a.reg_date, a.project_id, b.manager_name, b.manager_count
+        FROM
+        (    
+            select row_number () over (order by task_id ), task_id id, title, start_date as start, end_date as end, progress_rate, reg_date, state, project_id
+            from tb_task_super
+            where project_id in
+                (select id from tb_project 
+                where (id in (select project_id from tb_member where user_id=#{userId}))
+                )
+            and ((use_public=true) or (use_public=false and member_no in (select member_no from tb_member where user_id=#{userId})))
+        <if test="prjItem">
+        and (
+            <foreach open="(" close=")" collection="prjItem" item="pitem" index="index" separator="or">
+        project_id =#{pitem} 
+            </foreach>
+        )
+        </if>
+        <if test="memItem">
+       and (
+            <foreach open="(" close=")" collection="memItem" item="mitem" index="index" separator="or">
+        task_id in (select task_id from tb_task_manager where member_no in (select member_no from tb_member where user_id=#{mitem}))
+            </foreach>
+       )
+        </if>
+        <if test='uItem == "true"'>
+        and 
+        use_public = true
+        </if>
+        <if test='uItem =="false"'>
+        and (
+        use_public = false and (member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        </if>
+        )
+        AS a left outer join
+        (
+            select ttm.task_id id, json_agg(tu."name") as manager_name, count(tu.id) manager_count
+            from tb_task_manager ttm, tb_member tm,tb_user tu, tb_task_super tts2 
+            where  (ttm.task_id = tts2.task_id) 
+            and (ttm.member_no = tm.member_no)
+            and (tm.user_id = tu.id)
+            group by ttm.task_id
+        )
+        AS b
+        ON a.id = b.id 
+    </select>
+    <select id="getGanttFilterSubInfo" parameterType="map" resultType="gcinfodto">
+    SELECT a.id, a.title, a.start, a.end, a.parent_id, a.state, a.reg_date, a.project_id, b.manager_name, b.manager_count
+        FROM
+        (    
+            select tts.task_id id, tts.title, tts.start_date as start, tts.end_date as end, tts.task_super_id parent_id, tts.reg_date, tts.state, tp.id as project_id
+            from tb_task_sub tts, tb_task_super ttsp, tb_project tp 
+            where (tts.task_super_id = ttsp.task_id) and (ttsp.project_id = tp.id )
+            and (tts.task_super_id in 
+	            (select task_id 
+	            from tb_task_super 
+	            where project_id in 
+	            (
+		            select id from tb_project 
+                    where (id in (select project_id from tb_member where user_id=#{userId}))
+	            ) 
+	            and ((use_public=true) or (use_public=false and member_no in (select member_no from tb_member where user_id=#{userId})))
+	            ))
+	        and ((tts.use_public = true) or tts.use_public = false and tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        <if test="prjItem">
+        and (
+            <foreach open="(" close=")" collection="prjItem" item="pitem" index="index" separator="or">
+        ttsp.project_id =#{pitem} 
+            </foreach>
+        )
+        </if>
+        <if test="memItem">
+       and (
+            <foreach open="(" close=")" collection="memItem" item="mitem" index="index" separator="or">
+        tts.task_id in (select task_id from tb_task_manager where member_no in (select member_no from tb_member where user_id=#{mitem}))
+            </foreach>
+       )
+        </if>
+        <if test='uItem == "true"'>
+        and 
+        tts.use_public = true
+        </if>
+        <if test='uItem =="false"'>
+        and (
+        tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))
+        )
+        </if>        
+        )
+        AS a left outer join
+        (
+            select ttm.task_id id, json_agg(tu."name") as manager_name, count(tu.id) manager_count
+            from tb_task_manager ttm, tb_member tm,tb_user tu, tb_task_sub tts2 
+            where  (ttm.task_id = tts2.task_id) 
+            and (ttm.member_no = tm.member_no)
+            and (tm.user_id = tu.id)
+            group by ttm.task_id
+        )
+        AS b
+        ON a.id = b.id
+    </select>
+
+    <insert id="insertFilterItem" parameterType="map">
+        <![CDATA[
+    insert into tb_filter(filter_no, gaunt_setting , user_id ) 
+    values(nextval('seq_filter'), #{calItem}, #{userId});
+   ]]>
+    </insert>
+
+    <update id="updateFilterItem" parameterType="map">
+        <![CDATA[
+        update tb_filter 
+        set gaunt_setting = #{calItem} 
+        where user_id = #{userId}
+   ]]>
+    </update>
+
+    <select id="selectFilterItem" parameterType="String" resultType="String">
+        <![CDATA[
+        select gaunt_setting 
+        from tb_filter
+        where user_id = #{userId}
+   ]]>
+    </select>
+    <update id="deleteGanttSetting" parameterType="String">
+        <![CDATA[
+       update tb_filter 
+       set gaunt_setting = ''
+       where user_id=#{userId}
+    ]]>
+    </update>
+</mapper>

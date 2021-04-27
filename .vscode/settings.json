@@ -1,0 +1,6 @@
+{
+    "prettier.useEditorConfig": false,
+    "editor.formatOnSave": true,
+    "prettier.jsxSingleQuote": true,
+    "java.configuration.updateBuildConfiguration": "interactive"
+}

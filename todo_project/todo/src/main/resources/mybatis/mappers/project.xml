@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="project">
+	<insert id="insertProject" parameterType="projectvo">
+		<![CDATA[
+			insert into tb_project
+			( id, title, description, use_public, start_date, end_date, img_no, manager )
+			values
+			( #{id}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{imgNo}, #{manager})
+		]]>
+	</insert>
+	<select id="selectAllProjectList" resultType="projectcarddto">
+	<![CDATA[
+	select tp.*, tu.id as user_id , tu.img_code ,(SELECT COUNT(tm2.member_no) FROM tb_member tm2 WHERE tm2.project_id = tp.id) as memberCnt
+	from tb_project tp, tb_member tm , tb_user tu 
+	where tp.manager = tm.member_no and tm.user_id = tu.id and tp.use_public = true
+	union
+	select tp.*, tu.id , tu.img_code ,(SELECT COUNT(tm2.member_no) FROM tb_member tm2 WHERE tm2.project_id = tp.id) as memberCnt
+	from tb_project tp, tb_member tm , tb_user tu 
+	where tp.manager = tm.member_no and tm.user_id = #{userId} and tu.id = #{userId} and tp.use_public = false;
+	]]>
+	</select>
+	<select id="selectMyProjectList" resultType="projectcarddto">
+	<![CDATA[
+		select tp.*, tu.id as user_id , tu.img_code ,(SELECT COUNT(tm2.member_no) FROM tb_member tm2 WHERE tm2.project_id = tp.id) as memberCnt
+	from tb_project tp, tb_member tm , tb_user tu 
+	where tm.user_id = #{userId} and tm.project_id = tp.id  and tu.id = #{userId}
+	]]>
+	</select>
+	<select id="selectProject" resultType="projectvo">
+	<![CDATA[
+		select * from tb_project where id = #{pid}
+	]]>
+	</select>
+	<insert id="insertTaskSuper" parameterType="taskdto">
+		<![CDATA[
+			insert into tb_task_super
+			( task_id, title, description, use_public, start_date, end_date, state, labels, member_no, project_id )
+			values
+			( #{taskId}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{state}, #{labels}, #{memberNo}, #{projectId})
+		]]>
+	</insert>
+	<insert id="insertTaskSub" parameterType="taskdto">
+		<![CDATA[
+			insert into tb_task_sub
+			( task_id, title, description, use_public, start_date, end_date, sort_no, member_no, labels, task_super_id, state )
+			values
+			( #{taskId}, #{title}, #{description}, #{usePublic}, #{startDate}, #{endDate}, #{sortNo}, #{memberNo}, #{labels}, #{taskSuperId}, #{state})
+		]]>
+	</insert>
+	<insert id="insertStarred" parameterType="starredtaskvo">
+		<![CDATA[
+			insert into tb_starred_task
+			( task_id, member_no)
+			values
+			( #{taskId}, #{memberNo})
+		]]>
+		<selectKey keyProperty="starId" resultType="int" order="AFTER">
+            SELECT currval('seq_star')
+        </selectKey>
+	</insert>
+	<delete id="deleteStarred">
+		<![CDATA[
+		delete from tb_starred_task
+		where star_id =#{starId};
+		]]>
+	</delete>
+	<insert id="insertCheckList">
+		<![CDATA[
+			insert into tb_check_list
+			(task_id, title, member_no)
+			values
+			(#{taskId}, #{title}, #{memberNo})
+		]]>
+		<selectKey keyProperty="listNo" resultType="int" order="AFTER">
+            SELECT currval('seq_chklist')
+        </selectKey>
+	</insert>
+	<insert id="insertCheckListItem">
+		<![CDATA[
+			insert into tb_check_list_item
+			(list_no, title, member_no)
+			values
+			(#{listNo}, #{title}, #{memberNo})
+		]]>
+	</insert>
+	<select id="selectTaskSuperList" parameterType="map" resultType="taskdto">
+	<![CDATA[
+		select ttsp.*,
+		(SELECT COUNT(tf.file_no) FROM tb_file tf WHERE tf.task_id = ttsp.task_id) as fileCnt,
+		(SELECT COUNT(tc.comment_no) FROM tb_comment tc WHERE tc.task_id = ttsp.task_id) as CommentCnt,
+		(SELECT tst.star_id from tb_starred_task tst where tst.task_id = ttsp.task_id) as starred
+		from tb_task_super ttsp
+		where ttsp.project_id = #{pid} and ttsp.use_public = true
+		UNION
+		select tts.*,
+		(SELECT COUNT(tf.file_no) FROM tb_file tf WHERE tf.task_id = tts.task_id) as fileCnt,
+		(SELECT COUNT(tc.comment_no) FROM tb_comment tc WHERE tc.task_id = tts.task_id) as CommentCnt,
+		(SELECT tst.star_id from tb_starred_task tst where tst.task_id = tts.task_id) as starred
+		from tb_task_super tts
+		where tts.project_id = #{pid} 
+		and use_public = false 
+		and tts.member_no = #{memNo}
+		order by sort_no
+
+	]]>
+	</select>
+	<select id="selectTaskSubList" parameterType="map" resultType="taskdto">
+	<![CDATA[
+		select tts.*,
+		(SELECT COUNT(tf.file_no) FROM tb_file tf WHERE tf.task_id = tts.task_id) as fileCnt,
+		(SELECT COUNT(tc.comment_no) FROM tb_comment tc WHERE tc.task_id = tts.task_id) as CommentCnt,
+		(SELECT json_agg(ttm.member_no) as manager_name FROM tb_task_manager ttm WHERE ttm.task_id = tts.task_id) as managerString,
+		(SELECT tst.star_id from tb_starred_task tst where tst.task_id = tts.task_id) as starred
+		from tb_task_sub tts
+		where task_super_id = #{taskSuperId} 
+		and (tts.use_public = true or (tts.use_public = false and tts.member_no = #{memNo}))
+		order by tts.sort_no
+
+	]]>
+	</select>
+	<select id="selectCheckList" resultType="checklistdto">
+	<![CDATA[
+		select tcl.* , (select json_agg(tcli.* order by tcli.item_no) from tb_check_list_item tcli where tcli.list_no = tcl.list_no) as checkListItems
+		from tb_check_list tcl
+		where tcl.task_id = #{taskId}
+		order by tcl.list_no
+	]]>
+	</select>
+	<select id="selectMemberNo" parameterType="map" resultType="Integer">
+	<![CDATA[
+		select member_no from tb_member tm where user_id = #{userId} 
+		and tm.project_id = #{pid}
+	]]>
+	</select>
+	<insert id="insertNewLabel" parameterType="labelvo">
+		<![CDATA[
+			insert into tb_label
+			( label_name, label_color, project_id )
+			values
+			( #{labelName}, #{labelColor}, #{projectId})
+		]]>
+	</insert>
+	<select id="getLabelList" resultType="labelvo">
+	<![CDATA[
+		select *
+		from tb_label tl
+		where tl.project_id = #{pid}
+	]]>
+	</select>
+	<select id="getMemberList" resultType="memberdto">
+	<![CDATA[
+		select tm.member_no , tm.user_id , tu.name, tu.rank, tm.pos_no, tu.img_code, tu.phone, tu.email, td.dept_name
+		from tb_member tm, tb_user tu, tb_department td 
+		where tm.project_id = #{pid}
+			and tm.user_id = tu.id
+			and	td.dept_code = tu.dept_code
+	]]>
+	</select>
+	<select id="getSubTask" resultType="taskdto">
+	<![CDATA[
+		select tts.* , (SELECT json_agg(ttm.member_no) as manager_name FROM tb_task_manager ttm WHERE ttm.task_id = tts.task_id) as managerString
+		,(select star_id from tb_starred_task tst where tst.task_id = #{taskId}) as starred
+		from tb_task_sub tts 
+		where tts.task_id =#{taskId}
+	]]>
+	</select>
+
+	<select id="getSuperTask" resultType="taskdto">
+	<![CDATA[
+		select tts.* , (SELECT json_agg(ttm.member_no) as manager_name FROM tb_task_manager ttm WHERE ttm.task_id = tts.task_id) as managerString
+		,(select star_id from tb_starred_task tst where tst.task_id = #{taskId}) as starred
+		from tb_task_super tts 
+		where tts.task_id =#{taskId}
+	]]>
+	</select>
+
+	<select id="getFiles" resultType="filevo">
+	<![CDATA[
+		select *
+		from tb_file tf 
+		where tf.task_id =#{taskId}
+	]]>
+	</select>
+	
+	<update id="updateSortNo">
+		<![CDATA[
+			update tb_task_sub tts
+			set sort_no = #{sortNo}, task_super_id = #{taskSuperId}
+			where task_id = #{taskId}
+		]]>
+		
+	</update>
+	<update id="updateProject">
+		<![CDATA[
+		update tb_project
+		set title = #{title}, description = #{description}, use_public = #{usePublic}, start_date = #{startDate}, end_date = #{endDate}, img_no =#{imgNo}
+		where id = #{id}
+		]]>
+	</update>
+	<update id="updateProgressRate">
+		<![CDATA[
+		update tb_project tp
+		set progress_rate = 100*(SELECT COUNT(tts.task_id) FROM tb_task_super tts WHERE tts.state = 'C' and tts.project_id = #{projectId} )
+						/(SELECT coalesce(nullif(COUNT(tts2.task_id),0),1) FROM tb_task_super tts2 WHERE tts2.project_id = #{projectId})
+		where tp.id = #{projectId};
+		]]>
+	</update>
+	<update id="updateTaskSub">
+		update tb_task_sub tts
+		set title = #{title}, description = #{description}, use_public = #{usePublic}, start_date = #{startDate}, end_date =#{endDate}, state=#{state}
+		<if test="!labels.equals('')">
+		, labels=#{labels}
+		</if>
+		where task_id = #{taskId}
+	</update>
+	<update id="updateTaskSuper">
+		update tb_task_super tts
+		set title = #{title}, description = #{description}, use_public = #{usePublic}, start_date = #{startDate}, end_date =#{endDate}, state=#{state}
+		<if test="!labels.equals('')">
+		, labels=#{labels}
+		</if>
+		where task_id = #{taskId}
+	</update>
+	<update id="updateCheckListRate">
+		<![CDATA[
+			update tb_check_list
+			set progress_rate = 100*(SELECT COUNT(tcli.item_no) FROM tb_check_list_item tcli WHERE tcli.list_no = #{listNo} and tcli.is_checked = true)/(SELECT coalesce(nullif(COUNT(tcli.item_no),0),1) FROM tb_check_list_item tcli WHERE tcli.list_no = #{listNo})
+			where list_no = #{listNo}
+		]]>
+		
+	</update>
+	<update id="updateCheckListItem">
+		<![CDATA[
+			update tb_check_list_item
+			set is_checked = not is_checked
+			where item_no =#{itemNo};
+		]]>
+	</update>
+	<delete id="deleteCheckListItem">
+		<![CDATA[
+			delete from tb_check_list_item
+			where item_no =#{itemNo};
+		]]>
+	</delete>
+	<delete id="deleteCheckList">
+		<![CDATA[
+			delete from tb_check_list
+			where list_no =#{listNo};
+		]]>
+	</delete>
+	<insert id="insertAllCheckListItems" parameterType="map">
+			insert into tb_check_list_item
+			(list_no, title, member_no)
+			values
+		<foreach collection="itemList" item="item" index="index" separator=",">
+			(#{lno}, #{item.title}, #{item.memberNo})
+		</foreach>
+	</insert>
+	<insert id="insertReport">
+		<![CDATA[
+			insert into tb_report
+			(title, content, project_id, task_id, sender, receiver)
+			values
+			(#{title}, #{content}, #{projectId},#{taskId},#{sender}, #{receiver})
+		]]>
+		<selectKey keyProperty="reportNo" resultType="int" order="AFTER">
+			SELECT currval('seq_report')
+        </selectKey>
+	</insert>
+	<select id="selectSendReport" resultType="reportdto">
+	<![CDATA[
+		select tr.*, (SELECT COUNT(tf.file_no) FROM tb_file tf WHERE tf.task_id = concat('RP', tr.report_no))as fileCnt
+		from tb_report tr 
+		where sender = #{sender} order by reg_date desc;
+	]]>
+	</select>
+	<select id="selectReceiveReport" resultType="reportdto">
+	<![CDATA[
+		select tr.*, (SELECT COUNT(tf.file_no) FROM tb_file tf WHERE tf.task_id = concat('RP', tr.report_no))as fileCnt
+		from tb_report tr 
+		where receiver = #{receiver} order by reg_date desc;
+	]]>
+	</select>
+	<select id="selectReportDetail" resultType="reportdto">
+	<![CDATA[
+		select tr.*, tp.title as project_title, tts.title as task_title
+		from tb_report tr , tb_project tp , tb_task_super tts 
+		where report_no = #{rid} and tr.project_id = tp.id and tts.task_id = tr.task_id 
+	]]>
+	</select>
+
+
+</mapper>

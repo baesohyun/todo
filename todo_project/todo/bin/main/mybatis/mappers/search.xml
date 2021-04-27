@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+   PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="search">
+
+    <select id="selectAllList" parameterType="map" resultType="string">
+    select row_to_json(info) as info
+    from (
+        select tp.id, tp.title, tp.start_date startDate, tp.end_date endDate, tp.state state, tp.use_public usePublic,
+            (select json_agg(tu.name) manager_name from tb_member tm, tb_user tu where tm.project_id = tp.id and tm.user_id = tu.id) as members,
+            (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_member tm where tm.project_id = tp.id and tm.user_id = tu.id ) as img
+        from tb_project tp, tb_member tm
+        where tp.title like '%'||#{search}||'%'
+        <choose>
+            <when test="range == 'rga'">
+                and ( 
+                    (tp.manager = tm.member_no and tp.use_public = true)
+                    or  (tp.manager = tm.member_no and tp.use_public = false and tm.user_id = #{userId})
+                )
+            </when>
+            <when test='range == "t"'>
+                and (tp.manager = tm.member_no and tp.use_public = true)
+            </when>
+            <when test='range == "f"'>
+                and (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false)
+            </when>
+            <otherwise> and 1=1</otherwise>
+        </choose>
+    ) info
+    union all
+    select row_to_json(info) as info
+    from ( select 
+            tp.id prjId, tp.title prjTitle, tts.task_id id, tts.title title, tts.start_date startDate, tts.end_date endDate, tts.state state, 
+            tts.use_public usePublic,
+            (select json_agg(tu.name) as manager_name from tb_task_manager ttm, tb_user tu, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id) as members,
+            (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_task_manager ttm, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id ) as img
+        from tb_project tp, tb_member tm, tb_task_super tts
+        where tts.title like '%'||#{search}||'%'
+        <choose>
+            <when test="range == 'rga'">
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = true)
+                    or  (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = false  
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = true)
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = false 
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                )
+            </when>
+            <when test='range == "t"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = true)
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = true)
+                )
+            </when>
+            <when test='range == "f"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = false  
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = false 
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                )
+            </when>
+            <otherwise> and 1=1 </otherwise>
+        </choose>
+    ) info 
+    union all
+    select row_to_json(info) as info
+    from ( select 
+            tp.id prjId, tp.title prjTitle, ttsp.task_id pId, ttsp.title pTitle, tts.task_id id, tts.title title, 
+            tts.start_date startDate, tts.end_date endDate, tts.state state, tts.use_public usePublic,
+            (select json_agg(tu.name) as manager_name from tb_task_manager ttm, tb_user tu, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id) as members,
+            (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_task_manager ttm, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id ) as img
+        from tb_project tp, tb_member tm, tb_task_super ttsp, tb_task_sub tts
+        where tts.title like '%'||#{search}||'%'
+        <choose>
+            <when test="range == 'rga'">
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and ttsp.project_id = tp.id and ttsp.use_public = true and tts.task_super_id = ttsp.task_id 
+                        and tts.use_public = true)
+                    or 	  (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = true) 
+                        --
+                    or    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true 
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))    	
+                    or    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))     	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 
+                )
+            </when>
+            <when test='range == "t"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and ttsp.project_id = tp.id and ttsp.use_public = true and tts.task_super_id = ttsp.task_id 
+                        and tts.use_public = true)
+                    or 	  (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = true) 
+                )
+            </when>
+            <when test='range == "f"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true 
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))    	
+                    or    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))     	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 
+                )
+            </when>
+            <otherwise> and 1=1 </otherwise>
+        </choose>
+    ) info
+    </select>
+
+    <select id="selectProjectList" parameterType="map" resultType="string">
+    select row_to_json(info) as info
+    from (
+        select tp.id, tp.title, tp.start_date startDate, tp.end_date endDate, tp.state state, tp.use_public usePublic,
+            (select json_agg(tu.name) manager_name from tb_member tm, tb_user tu where tm.project_id = tp.id and tm.user_id = tu.id) as members,
+            (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_member tm where tm.project_id = tp.id and tm.user_id = tu.id ) as img
+        from tb_project tp, tb_member tm
+        where tp.title like '%'||#{search}||'%'
+        <choose>
+            <when test="range == 'rga'">
+                and ( 
+                    (tp.manager = tm.member_no and tp.use_public = true)
+                    or  (tp.manager = tm.member_no and tp.use_public = false and tm.user_id = #{userId})
+                )
+            </when>
+            <when test='range == "t"'>
+                and (tp.manager = tm.member_no and tp.use_public = true)
+            </when>
+            <when test='range == "f"'>
+                and (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false)
+            </when>
+            <otherwise> and 1=1</otherwise>
+        </choose>
+    ) info
+	</select>
+
+    
+    <select id="selectTaskList" parameterType="map" resultType="string">
+    select row_to_json(info) as info
+    from ( select 
+            tp.id prjId, tp.title prjTitle, tts.task_id id, tts.title title, tts.start_date startDate, tts.end_date endDate, tts.state state, 
+            tts.use_public usePublic,
+            (select json_agg(tu.name) as manager_name from tb_task_manager ttm, tb_user tu, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id) as members,
+            (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_task_manager ttm, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id ) as img
+        from tb_project tp, tb_member tm, tb_task_super tts
+        where tts.title like '%'||#{search}||'%'
+        <choose>
+            <when test="range == 'rga'">
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = true)
+                    or  (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = false  
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = true)
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = false 
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                )
+            </when>
+            <when test='range == "t"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = true)
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = true)
+                )
+            </when>
+            <when test='range == "f"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = false  
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                    or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = false 
+                            and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                )
+            </when>
+            <otherwise> and 1=1 </otherwise>
+        </choose>
+    ) info 
+    union all
+    select row_to_json(info) as info
+    from ( select 
+            tp.id prjId, tp.title prjTitle, ttsp.task_id pId, ttsp.title pTitle, tts.task_id id, tts.title title, 
+            tts.start_date startDate, tts.end_date endDate, tts.state state, tts.use_public usePublic,
+            (select json_agg(tu.name) as manager_name from tb_task_manager ttm, tb_user tu, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id) as members,
+            (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_task_manager ttm, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id ) as img
+        from tb_project tp, tb_member tm, tb_task_super ttsp, tb_task_sub tts
+        where tts.title like '%'||#{search}||'%'
+        <choose>
+            <when test="range == 'rga'">
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and ttsp.project_id = tp.id and ttsp.use_public = true and tts.task_super_id = ttsp.task_id 
+                        and tts.use_public = true)
+                    or 	  (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = true) 
+                        --
+                    or    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true 
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))    	
+                    or    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))     	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 
+                )
+            </when>
+            <when test='range == "t"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true and ttsp.project_id = tp.id and ttsp.use_public = true and tts.task_super_id = ttsp.task_id 
+                        and tts.use_public = true)
+                    or 	  (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = true) 
+                )
+            </when>
+            <when test='range == "f"'>
+                and (
+                    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = true 
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))    	
+                    or    (tp.manager = tm.member_no and tp.use_public = true 
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))     	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = true
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 	
+                    or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                        and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                        and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 
+                )
+            </when>
+            <otherwise> and 1=1 </otherwise>
+        </choose>
+    ) info
+    </select>
+    
+    <select id="selectManagerList" parameterType="map" resultType="string">
+        select row_to_json(info) as info
+        from (
+            select tp.id, tp.title, tp.start_date startDate, tp.end_date endDate, tp.state state, tp.use_public usePublic,
+                (select json_agg(tu.name) manager_name from tb_member tm, tb_user tu where tm.project_id = tp.id and tm.user_id = tu.id) as members,
+                (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_member tm where tm.project_id = tp.id and tm.user_id = tu.id ) as img
+            from tb_project tp, tb_member tm
+            where tp.id in (select project_id from tb_member where user_id in (select id from tb_user where name like '%'||#{search}||'%'))
+            <choose>
+                <when test="range == 'rga'">
+                    and ( 
+                        (tp.manager = tm.member_no and tp.use_public = true)
+                        or  (tp.manager = tm.member_no and tp.use_public = false and tm.user_id = #{userId})
+                    )
+                </when>
+                <when test='range == "t"'>
+                    and (tp.manager = tm.member_no and tp.use_public = true)
+                </when>
+                <when test='range == "f"'>
+                    and (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false)
+                </when>
+                <otherwise> and 1=1</otherwise>
+            </choose>
+        ) info
+        union all
+        select row_to_json(info) as info
+        from ( select 
+                tp.id prjId, tp.title prjTitle, tts.task_id id, tts.title title, tts.start_date startDate, tts.end_date endDate, tts.state state, 
+                tts.use_public usePublic,
+                (select json_agg(tu.name) as manager_name from tb_task_manager ttm, tb_user tu, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id) as members,
+                (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_task_manager ttm, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id ) as img
+            from tb_project tp, tb_member tm, tb_task_super tts
+            where tts.task_id in (select task_id from tb_task_manager ttm where member_no in 
+                                 (select member_no from tb_member tm where user_id in (select id from tb_user where name like '%'||#{search}||'%')))
+            <choose>
+                <when test="range == 'rga'">
+                    and (
+                        (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = true)
+                        or  (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = false  
+                                and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                        or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = true)
+                        or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = false 
+                                and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                    )
+                </when>
+                <when test='range == "t"'>
+                    and (
+                        (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = true)
+                        or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = true)
+                    )
+                </when>
+                <when test='range == "f"'>
+                    and (
+                        (tp.manager = tm.member_no and tp.use_public = true and tts.project_id = tp.id and tts.use_public = false  
+                                and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                        or  ((tp.manager = tm.member_no and tm.user_id = #{userId}) and tp.use_public = false and tts.project_id = tp.id and tts.use_public = false 
+                                and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))
+                    )
+                </when>
+                <otherwise> and 1=1 </otherwise>
+            </choose>
+        ) info 
+        union all
+        select row_to_json(info) as info
+        from ( select 
+                tp.id prjId, tp.title prjTitle, ttsp.task_id pId, ttsp.title pTitle, tts.task_id id, tts.title title, 
+                tts.start_date startDate, tts.end_date endDate, tts.state state, tts.use_public usePublic,
+                (select json_agg(tu.name) as manager_name from tb_task_manager ttm, tb_user tu, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id) as members,
+                (select jsonb_agg(tu.img_code) img_code from tb_user tu, tb_task_manager ttm, tb_member tm where tts.task_id = ttm.task_id and ttm.member_no = tm.member_no and tm.user_id = tu.id ) as img
+            from tb_project tp, tb_member tm, tb_task_super ttsp, tb_task_sub tts
+            where tts.task_id in (select task_id from tb_task_manager ttm where member_no in
+                                 (select member_no from tb_member tm where user_id in (select id from tb_user where name like '%'||#{search}||'%')))
+            <choose>
+                <when test="range == 'rga'">
+                    and (
+                        (tp.manager = tm.member_no and tp.use_public = true and ttsp.project_id = tp.id and ttsp.use_public = true and tts.task_super_id = ttsp.task_id 
+                            and tts.use_public = true)
+                        or 	  (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false 
+                            and ttsp.project_id = tp.id and ttsp.use_public = true
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = true) 
+                            --
+                        or    (tp.manager = tm.member_no and tp.use_public = true 
+                            and ttsp.project_id = tp.id and ttsp.use_public = true 
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))    	
+                        or    (tp.manager = tm.member_no and tp.use_public = true 
+                            and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))     	
+                        or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                            and ttsp.project_id = tp.id and ttsp.use_public = true
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 	
+                        or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                            and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 
+                    )
+                </when>
+                <when test='range == "t"'>
+                    and (
+                        (tp.manager = tm.member_no and tp.use_public = true and ttsp.project_id = tp.id and ttsp.use_public = true and tts.task_super_id = ttsp.task_id 
+                            and tts.use_public = true)
+                        or 	  (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false 
+                            and ttsp.project_id = tp.id and ttsp.use_public = true
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = true) 
+                    )
+                </when>
+                <when test='range == "f"'>
+                    and (
+                        (tp.manager = tm.member_no and tp.use_public = true 
+                            and ttsp.project_id = tp.id and ttsp.use_public = true 
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))    	
+                        or    (tp.manager = tm.member_no and tp.use_public = true 
+                            and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId})))     	
+                        or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                            and ttsp.project_id = tp.id and ttsp.use_public = true
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 	
+                        or    (tp.manager = tm.member_no and tm.user_id = #{userId} and tp.use_public = false  
+                            and ttsp.project_id = tp.id and ttsp.use_public = false and (ttsp.member_no in (select member_no from tb_member where user_id=#{userId}))
+                            and tts.task_super_id = ttsp.task_id and tts.use_public = false and (tts.member_no in (select member_no from tb_member where user_id=#{userId}))) 
+                    )
+                </when>
+                <otherwise> and 1=1 </otherwise>
+            </choose>
+        ) info              
+    </select>
+</mapper>
